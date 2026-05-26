@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tester Remote IR - Pro Mode</title>
+    <title>Tester Remote IR - Standar Mode</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -148,8 +148,8 @@
 </head>
 <body>
 
-    <h2>Tester Remote IR (Pro Mode)</h2>
-    <p style="margin: 0; color: #888; font-size: 13px;">Fitur: Audio Bip + Getar HP + Monitor Kamera</p>
+    <h2>Tester Remote IR (Stabilized Mode)</h2>
+    <p style="margin: 0; color: #888; font-size: 13px;">Fitur: Audio Bip + Getar HP + Monitor Kamera (Peka Seimbang)</p>
 
     <div class="box-container">
         <div class="monitor-box">
@@ -169,14 +169,14 @@
 
     <div class="control-panel">
         <div class="control-group">
-            <label for="brightnessRange">Peka Cahaya: <span id="brightVal">120</span></label>
-            <input type="range" id="brightnessRange" min="50" max="230" value="120">
-            <div style="color: #888; font-size: 11px; margin-left: 140px;">Makin kecil angka = makin super peka</div>
+            <label for="brightnessRange">Peka Cahaya: <span id="brightVal">180</span></label>
+            <input type="range" id="brightnessRange" min="100" max="245" value="180">
+            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (180) pas untuk mengabaikan lampu ruangan biasa.</div>
         </div>
         <div class="control-group">
-            <label for="pixelRange">Sensitivitas Titik: <span id="pixelVal">0.001</span>%</label>
-            <input type="range" id="pixelRange" min="1" max="50" value="1">
-            <div style="color: #888; font-size: 11px; margin-left: 140px;">Angka 1 = mendeteksi titik led sekecil apa pun</div>
+            <label for="pixelRange">Sensitivitas Titik: <span id="pixelVal">0.010</span>%</label>
+            <input type="range" id="pixelRange" min="1" max="100" value="10">
+            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (10) mencegah noise kamera memicu getaran palsu.</div>
         </div>
     </div>
 
@@ -188,7 +188,7 @@
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
         const switchBtn = document.getElementById('switchBtn');
-        const stopBtn = document.getElementById('stopBtn'); // Tombol Stop Baru
+        const stopBtn = document.getElementById('stopBtn');
         const indicator = document.getElementById('indicator');
         const statusText = document.getElementById('statusText');
         const monitorLabel = document.getElementById('monitorLabel');
@@ -201,7 +201,7 @@
         let currentStream = null;
         let useFrontCamera = true; 
         let isDetecting = false;
-        let animationFrameId = null; // ID untuk menghentikan loop
+        let animationFrameId = null;
         
         let audioCtx = null;
         let lastActionTime = 0;
@@ -220,11 +220,11 @@
 
         function triggerFeedback() {
             const nowTime = Date.now();
-            if (nowTime - lastActionTime < 100) return;
+            if (nowTime - lastActionTime < 120) return; // Dijeda sedikit lebih lama (120ms) agar lebih bersih
             lastActionTime = nowTime;
 
             if (navigator.vibrate) {
-                navigator.vibrate(50); 
+                navigator.vibrate(40); // Getaran dipersingkat jadi 40ms agar terasa tegas
             }
 
             if (audioCtx) {
@@ -233,16 +233,16 @@
                 const gainNode = audioCtx.createGain();
                 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, now); 
+                osc.frequency.setValueAtTime(1000, now); // Diturunkan sedikit ke 1000Hz agar tidak terlalu memekakkan telinga
                 
-                gainNode.gain.setValueAtTime(0.2, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.06); 
+                gainNode.gain.setValueAtTime(0.15, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05); 
                 
                 osc.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 
                 osc.start(now);
-                osc.stop(now + 0.06);
+                osc.stop(now + 0.05);
             }
         }
 
@@ -270,9 +270,12 @@
                 const g = data[i + 1];
                 const b = data[i + 2];
                 
+                // Menghitung kecerahan terbobot
                 const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
                 
-                if (brightness > brightnessThreshold) {
+                // Menambahkan syarat pengetatan: piksel harus cerah SEKALIGUS cenderung seimbang (mendekati putih/abu-abu terang)
+                // Ini efektif menyaring lampu berwarna tajam di ruangan
+                if (brightness > brightnessThreshold && Math.abs(r - g) < 40 && Math.abs(g - b) < 40) {
                     brightPixelCount++;
                 }
             }
@@ -312,7 +315,6 @@
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
                 
-                // Atur visibilitas tombol
                 startBtn.style.display = "none";
                 switchBtn.style.display = "inline-block";
                 stopBtn.style.display = "inline-block";
@@ -328,30 +330,25 @@
             }
         }
 
-        // Fungsi baru untuk menghentikan kamera dan deteksi
         function stopCamera() {
-            isDetecting = false; // Hentikan flag deteksi
+            isDetecting = false;
             
-            // Batalkan requestAnimationFrame yang sedang berjalan
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
 
-            // Matikan semua track (video/audio) dari stream
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
                 video.srcObject = null;
                 currentStream = null;
             }
 
-            // Reset UI ke kondisi awal
             indicator.classList.remove('active');
             statusText.innerText = "Sistem Dihentikan.";
             statusText.style.color = "#aaa";
             monitorLabel.innerText = "OFF";
             
-            // Atur ulang visibilitas tombol
             startBtn.style.display = "inline-block";
             startBtn.innerText = "Mulai Ulang";
             switchBtn.style.display = "none";
@@ -363,7 +360,7 @@
             useFrontCamera = !useFrontCamera;
             startCamera();
         });
-        stopBtn.addEventListener('click', stopCamera); // Event listener untuk tombol Stop
+        stopBtn.addEventListener('click', stopCamera);
     </script>
 </body>
 </html>
