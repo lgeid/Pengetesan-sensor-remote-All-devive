@@ -3,65 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengetes Remote IR (Indikator Saja)</title>
+    <title>Tester Remote IR - Sensitif + Suara</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #1a1a1a;
+            background-color: #121212;
             color: #ffffff;
             margin: 0;
             padding: 20px;
         }
         h2 {
-            color: #4da6ff;
+            color: #00e676;
         }
         .instructions {
-            background-color: #2a2a2a;
+            background-color: #1e1e1e;
             padding: 15px 20px;
             border-radius: 8px;
-            margin-bottom: 30px;
-            font-size: 15px;
-            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
             text-align: left;
-            border-left: 4px solid #4da6ff;
+            border-left: 4px solid #00e676;
         }
         
-        /* Gaya untuk Indikator */
-        #indicator {
+        /* Kontrol Sensitivitas */
+        .control-panel {
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .control-group {
+            margin-bottom: 10px;
+        }
+        .control-group label {
+            display: inline-block;
             width: 150px;
-            height: 150px;
-            background-color: rgb(211, 47, 47); /* Merah saat mati */
+            font-size: 14px;
+        }
+        .control-group input {
+            width: 150px;
+            vertical-align: middle;
+        }
+
+        /* Gaya Indikator */
+        #indicator {
+            width: 160px;
+            height: 160px;
+            background-color: #b71c1c; /* Merah gelap saat mati */
             border-radius: 50%;
-            margin: 20px auto;
-            border: 10px solid #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: background-color 0.1s, box-shadow 0.1s;
+            margin: 25px auto;
+            border: 8px solid #333;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+            transition: background-color 0.05s, box-shadow 0.05s;
         }
         
-        /* Gaya untuk Indikator saat aktif */
+        /* Indikator Aktif (Sinyal Masuk) */
         #indicator.active {
-            background-color: rgb(76, 175, 80); /* Hijau saat nyala */
-            box-shadow: 0 0 25px rgb(139, 195, 74), 0 0 5px #fff;
+            background-color: #00e676; /* Hijau neon */
+            border-color: #fff;
+            box-shadow: 0 0 40px #00e676, 0 0 10px #fff;
         }
         
+        #statusText {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #aaa;
+        }
+
         button {
-            padding: 12px 24px;
+            padding: 14px 28px;
             font-size: 16px;
             font-weight: bold;
             margin: 10px;
             cursor: pointer;
-            background-color: #4da6ff;
-            color: #1a1a1a;
+            background-color: #00e676;
+            color: #121212;
             border: none;
-            border-radius: 5px;
-            transition: background-color 0.3s;
+            border-radius: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.2s;
         }
         button:hover {
-            background-color: #3388dd;
+            background-color: #00b55d;
+            transform: scale(1.03);
         }
         
-        /* Sembunyikan elemen video dan canvas */
         video, canvas {
             display: none;
         }
@@ -69,25 +99,35 @@
 </head>
 <body>
 
-    <h2>Tester Remote TV / AC</h2>
+    <h2>Tester Remote IR (Mode Audio & High Sensitivity)</h2>
     
     <div class="instructions">
         <strong>Cara Penggunaan:</strong>
         <ol>
-            <li>Klik tombol <strong>"Mulai Deteksi"</strong> dan berikan izin akses kamera.</li>
-            <li>Arahkan lampu LED remote ke kamera HP Anda.</li>
-            <li>Tekan tombol apa saja di remote secara berulang.</li>
-            <li>Jika remote berfungsi, indikator bulat di bawah ini akan <strong>berkedip menjadi Hijau</strong>.</li>
+            <li>Klik <strong>"Mulai Deteksi"</strong> (Wajib diklik agar browser mengizinkan suara & kamera).</li>
+            <li>Arahkan remote ke kamera HP dan tekan tombolnya.</li>
+            <li>Jika indikator menyala hijau terus tanpa ditekan, **naikkan slider Batas Kecerahan** ke kanan sampai indikator kembali merah.</li>
         </ol>
-        <em>*Catatan: Deteksi ini paling akurat di lingkungan yang tidak terlalu terang. Matikan lampu jika Anda mengalami kesulitan.</em>
+    </div>
+
+    <div class="control-panel">
+        <div class="control-group">
+            <label for="brightnessRange">Batas Kecerahan: <span id="brightVal">160</span></label>
+            <input type="range" id="brightnessRange" min="100" max="250" value="160">
+            <small style="color: #888; margin-left: 10px;">(Makin kecil = makin peka cahaya redup)</small>
+        </div>
+        <div class="control-group">
+            <label for="pixelRange">Ukuran Titik: <span id="pixelVal">0.003</span>%</label>
+            <input type="range" id="pixelRange" min="1" max="50" value="3">
+            <small style="color: #888; margin-left: 10px;">(Makin kecil = merespon titik led sekecil apa pun)</small>
+        </div>
     </div>
 
     <button id="startBtn">Mulai Deteksi</button>
     <button id="switchBtn" style="display: none;">Ganti Kamera</button>
     
-    <br>
     <div id="indicator"></div>
-    <div id="statusText">Deteksi belum aktif...</div>
+    <div id="statusText">Sistem Siap...</div>
 
     <video id="videoElement" autoplay playsinline></video>
     <canvas id="canvasElement"></canvas>
@@ -101,96 +141,139 @@
         const indicator = document.getElementById('indicator');
         const statusText = document.getElementById('statusText');
         
-        let currentStream = null;
-        let useFrontCamera = true; // Kita default ke kamera depan (biasanya lebih sensitif IR)
-        let isDetecting = false;
+        // Elemen Slider
+        const brightnessRange = document.getElementById('brightnessRange');
+        const pixelRange = document.getElementById('pixelRange');
+        const brightVal = document.getElementById('brightVal');
+        const pixelVal = document.getElementById('pixelVal');
 
-        // Ambil piksel per piksel dan cari yang sangat cerah (paling putih)
+        let currentStream = null;
+        let useFrontCamera = true; 
+        let isDetecting = false;
+        
+        // Audio variabel
+        let audioCtx = null;
+        let lastBeepTime = 0;
+
+        // Update teks nilai slider saat digeser
+        brightnessRange.addEventListener('input', () => brightVal.innerText = brightnessRange.value);
+        pixelRange.addEventListener('input', () => pixelVal.innerText = (pixelRange.value / 1000).toFixed(3));
+
+        // Fungsi inisiasi Audio (wajib dipicu lewat tombol/klik user)
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Fungsi pembuat suara Bip Teknis
+        function playBeep() {
+            if (!audioCtx) return;
+            
+            const now = audioCtx.currentTime;
+            // Batasi suara (Throttling) maksimal berbunyi setiap 120ms agar tidak merusak speaker
+            if (Date.now() - lastBeepTime < 120) return;
+            lastBeepTime = Date.now();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'sine'; // Suara gelombang sinus bersih
+            osc.frequency.setValueAtTime(1000, now); // Frekuensi bising tinggi (1000Hz) agar jelas
+            
+            gainNode.gain.setValueAtTime(0.15, now); // Volume 15% (cukup nyaring)
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.08); // Fade out cepat dalam 0.08 detik
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc.start(now);
+            osc.stop(now + 0.08);
+        }
+
         function analyzeFrame() {
             if (!isDetecting || video.readyState !== video.HAVE_ENOUGH_DATA) return;
             
-            // Samakan ukuran canvas dengan video
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            // Downscale canvas agar pemrosesan super cepat dan responsif
+            canvas.width = 160; 
+            canvas.height = 120;
             
-            // Gambar frame video saat ini ke canvas
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Ambil data piksel mentah
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data; // Data piksel dalam [R,G,B,A, R,G,B,A, ...]
+            const data = imageData.data;
             
-            // Ambang batas kecerahan (0-255). 200 adalah angka awal yang bagus.
-            const brightnessThreshold = 210; 
-            
-            // Ambang batas persentase piksel cerah (0.01 - 100).
-            const percentageThreshold = 0.02; // Lebih dari 0.02% piksel frame adalah sangat cerah
+            // Mengambil nilai sensitivitas terbaru dari UI slider
+            const brightnessThreshold = parseInt(brightnessRange.value);
+            const percentageThreshold = parseFloat(pixelRange.value) / 1000; 
             
             let brightPixelCount = 0;
             const totalPixels = data.length / 4;
             
-            // Iterasi data piksel, kita loncat 4 piksel untuk mempercepat proses (downsampling)
+            // Scan piksel (loncat per 4 piksel untuk akselerasi performa)
             for (let i = 0; i < data.length; i += 16) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
                 
-                // Cari piksel yang sangat cerah dan mendekati putih
-                // (R, G, dan B semuanya harus di atas ambang batas)
-                if (r > brightnessThreshold && g > brightnessThreshold && b > brightnessThreshold) {
+                // Rumus kalkulasi kecerahan (Grayscale)
+                const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                
+                if (brightness > brightnessThreshold) {
                     brightPixelCount++;
                 }
             }
             
             const currentPercentage = (brightPixelCount / (totalPixels / 4)) * 100;
             
-            // Nyalakan indikator jika kita menemukan titik cerah yang cukup
             if (currentPercentage > percentageThreshold) {
-                indicator.classList.add('active');
+                if (!indicator.classList.contains('active')) {
+                    indicator.classList.add('active');
+                    statusText.innerText = "Sinyal Terdeteksi!";
+                    statusText.style.color = "#00e676";
+                }
+                playBeep(); // Bunyikan BIP jika terdeteksi cahaya IR
             } else {
                 indicator.classList.remove('active');
+                statusText.innerText = "Mencari Sinyal...";
+                statusText.style.color = "#aaa";
             }
             
-            // Lanjutkan loop analisis di frame berikutnya
             requestAnimationFrame(analyzeFrame);
         }
 
         async function startCamera() {
+            initAudio(); // Aktifkan sistem suara
+            
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
             }
 
             const constraints = {
-                video: {
-                    facingMode: useFrontCamera ? "user" : "environment"
-                }
+                video: { facingMode: useFrontCamera ? "user" : "environment" }
             };
 
             try {
-                // Meminta akses ke kamera
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
                 
-                // Ubah tampilan tombol
                 startBtn.style.display = "none";
                 switchBtn.style.display = "inline-block";
-                statusText.innerText = `Deteksi sedang berjalan... (Kamera ${useFrontCamera ? "Depan" : "Belakang"})`;
                 
-                // Mulai deteksi
                 isDetecting = true;
                 analyzeFrame();
             } catch (err) {
-                console.error("Error accessing camera:", err);
-                statusText.innerText = "Error: Gagal mengakses kamera!";
-                isDetecting = false;
-                alert("Gagal mengakses kamera! Pastikan Anda memberikan izin kamera. \n\nCatatan: Fitur kamera browser di HP biasanya hanya berfungsi jika web diakses melalui koneksi aman (HTTPS) atau localhost.");
+                console.error(err);
+                statusText.innerText = "Gagal Akses Kamera!";
+                alert("Harus menggunakan HTTPS/Localhost dan memberikan izin kamera.");
             }
         }
 
         startBtn.addEventListener('click', startCamera);
-        
         switchBtn.addEventListener('click', () => {
-            useFrontCamera = !useFrontCamera; // Toggle mode kamera
+            useFrontCamera = !useFrontCamera;
             startCamera();
         });
     </script>
