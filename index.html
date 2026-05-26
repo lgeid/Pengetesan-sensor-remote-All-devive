@@ -101,13 +101,16 @@
             color: #aaa;
         }
 
+        /* Gaya Tombol */
+        .btn-group {
+            margin-bottom: 20px;
+        }
         button {
             padding: 12px 24px;
             font-size: 15px;
             font-weight: bold;
             margin: 5px;
             cursor: pointer;
-            background-color: #00e676;
             color: #121212;
             border: none;
             border-radius: 25px;
@@ -115,11 +118,29 @@
             transition: all 0.2s;
         }
         button:hover {
-            background-color: #00b55d;
             transform: scale(1.02);
         }
+        #startBtn {
+            background-color: #00e676;
+        }
+        #startBtn:hover {
+            background-color: #00b55d;
+        }
+        #switchBtn {
+            background-color: #4da6ff;
+        }
+        #switchBtn:hover {
+            background-color: #3388dd;
+        }
+        #stopBtn {
+            background-color: #ff3333;
+            color: white;
+        }
+        #stopBtn:hover {
+            background-color: #cc0000;
+        }
         
-        /* Canvas tersembunyi untuk processing data */
+        /* Canvas tersembunyi */
         canvas {
             display: none;
         }
@@ -130,24 +151,22 @@
     <h2>Tester Remote IR (Pro Mode)</h2>
     <p style="margin: 0; color: #888; font-size: 13px;">Fitur: Audio Bip + Getar HP + Monitor Kamera</p>
 
-    <!-- Kotak Monitor & Indikator Sejajar -->
     <div class="box-container">
-        <!-- Monitor Kecil -->
         <div class="monitor-box">
             <video id="videoElement" autoplay playsinline muted></video>
             <div class="monitor-label" id="monitorLabel">OFF</div>
         </div>
-        
-        <!-- Lingkaran Indikator -->
         <div id="indicator"></div>
     </div>
 
     <div id="statusText">Sistem Siap...</div>
 
-    <button id="startBtn">Mulai Deteksi</button>
-    <button id="switchBtn" style="display: none;">Ganti Kamera</button>
+    <div class="btn-group">
+        <button id="startBtn">Mulai Deteksi</button>
+        <button id="switchBtn" style="display: none;">Ganti Kamera</button>
+        <button id="stopBtn" style="display: none;">Berhenti</button>
+    </div>
 
-    <!-- Panel Kalibrasi Kepekaan -->
     <div class="control-panel">
         <div class="control-group">
             <label for="brightnessRange">Peka Cahaya: <span id="brightVal">120</span></label>
@@ -169,6 +188,7 @@
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
         const switchBtn = document.getElementById('switchBtn');
+        const stopBtn = document.getElementById('stopBtn'); // Tombol Stop Baru
         const indicator = document.getElementById('indicator');
         const statusText = document.getElementById('statusText');
         const monitorLabel = document.getElementById('monitorLabel');
@@ -181,6 +201,7 @@
         let currentStream = null;
         let useFrontCamera = true; 
         let isDetecting = false;
+        let animationFrameId = null; // ID untuk menghentikan loop
         
         let audioCtx = null;
         let lastActionTime = 0;
@@ -197,29 +218,25 @@
             }
         }
 
-        // Fungsi pemicu Audio (Bip) dan Getar (Vibrate) secara bersamaan
         function triggerFeedback() {
             const nowTime = Date.now();
-            // Batasi umpan balik maksimal setiap 100ms agar responsif tapi tidak berlebihan
             if (nowTime - lastActionTime < 100) return;
             lastActionTime = nowTime;
 
-            // 1. Jalankan Fitur Getar (Vibrator)
             if (navigator.vibrate) {
-                navigator.vibrate(50); // Getar pendek selama 50 milidetik
+                navigator.vibrate(50); 
             }
 
-            // 2. Jalankan Fitur Suara (Web Audio API)
             if (audioCtx) {
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
                 
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, now); // Frekuensi agak tinggi agar jelas terdengar
+                osc.frequency.setValueAtTime(1200, now); 
                 
                 gainNode.gain.setValueAtTime(0.2, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.06); // Mati cepat dalam 0.06 detik
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.06); 
                 
                 osc.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
@@ -230,9 +247,11 @@
         }
 
         function analyzeFrame() {
-            if (!isDetecting || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+            if (!isDetecting || video.readyState !== video.HAVE_ENOUGH_DATA) {
+                if(isDetecting) animationFrameId = requestAnimationFrame(analyzeFrame);
+                return;
+            }
             
-            // Ukuran canvas kecil untuk kecepatan processing data piksel tinggi
             canvas.width = 120; 
             canvas.height = 90;
             
@@ -246,13 +265,11 @@
             let brightPixelCount = 0;
             const totalPixels = data.length / 4;
             
-            // Scan piksel secara rapat (loncat per 8 komponen data/2 piksel agar lebih presisi)
             for (let i = 0; i < data.length; i += 8) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
                 
-                // Kalkulasi kecerahan piksel
                 const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
                 
                 if (brightness > brightnessThreshold) {
@@ -265,7 +282,7 @@
             if (currentPercentage > percentageThreshold) {
                 if (!indicator.classList.contains('active')) {
                     indicator.classList.add('active');
-                    statusText.innerText = "SINAYAL MASUK!";
+                    statusText.innerText = "SINYAL MASUK!";
                     statusText.style.color = "#00e676";
                 }
                 triggerFeedback(); 
@@ -275,7 +292,9 @@
                 statusText.style.color = "#aaa";
             }
             
-            requestAnimationFrame(analyzeFrame);
+            if (isDetecting) {
+                animationFrameId = requestAnimationFrame(analyzeFrame);
+            }
         }
 
         async function startCamera() {
@@ -293,8 +312,11 @@
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
                 
+                // Atur visibilitas tombol
                 startBtn.style.display = "none";
                 switchBtn.style.display = "inline-block";
+                stopBtn.style.display = "inline-block";
+                
                 monitorLabel.innerText = useFrontCamera ? "DEPAN" : "BELAKANG";
                 
                 isDetecting = true;
@@ -306,11 +328,42 @@
             }
         }
 
+        // Fungsi baru untuk menghentikan kamera dan deteksi
+        function stopCamera() {
+            isDetecting = false; // Hentikan flag deteksi
+            
+            // Batalkan requestAnimationFrame yang sedang berjalan
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
+            // Matikan semua track (video/audio) dari stream
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                currentStream = null;
+            }
+
+            // Reset UI ke kondisi awal
+            indicator.classList.remove('active');
+            statusText.innerText = "Sistem Dihentikan.";
+            statusText.style.color = "#aaa";
+            monitorLabel.innerText = "OFF";
+            
+            // Atur ulang visibilitas tombol
+            startBtn.style.display = "inline-block";
+            startBtn.innerText = "Mulai Ulang";
+            switchBtn.style.display = "none";
+            stopBtn.style.display = "none";
+        }
+
         startBtn.addEventListener('click', startCamera);
         switchBtn.addEventListener('click', () => {
             useFrontCamera = !useFrontCamera;
             startCamera();
         });
+        stopBtn.addEventListener('click', stopCamera); // Event listener untuk tombol Stop
     </script>
 </body>
 </html>
