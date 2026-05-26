@@ -207,7 +207,7 @@
         <div class="control-group">
             <label for="pixelRange">Sensitivitas Titik: <span id="pixelVal">0.010</span>%</label>
             <input type="range" id="pixelRange" min="1" max="100" value="10">
-            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (10) ideal untuk menyaring goyangan tangan (noise).</div>
+            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (10) mencegah goyangan tangan memicu deteksi palsu.</div>
         </div>
     </div>
 
@@ -238,7 +238,7 @@
         let isDetecting = false;
         let animationFrameId = null;
         
-        // Variabel penyimpan memori frame sebelumnya
+        // Memori penyimpanan frame sebelumnya (Metode Green Screen/Subtraksi)
         let prevFrameData = null;
         
         let audioCtx = null;
@@ -261,10 +261,12 @@
             if (nowTime - lastActionTime < 120) return; 
             lastActionTime = nowTime;
 
+            // Fitur Getar Android (navigator.vibrate)
             if (navigator.vibrate) {
                 navigator.vibrate(40); 
             }
 
+            // Fitur Suara Bip Frekuensi
             if (audioCtx) {
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator();
@@ -297,18 +299,17 @@
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
-            const sensitivityThreshold = parseInt(brightnessRange.value); // Nilai ambang perubahan (Delta)
+            const sensitivityThreshold = parseInt(brightnessRange.value); 
             const percentageThreshold = parseFloat(pixelRange.value) / 1000; 
             
             let changedPixelCount = 0;
             const totalPixels = data.length / 4;
             
-            // Alokasikan memori buffer array sekali saja untuk performa tinggi
             if (!prevFrameData || prevFrameData.length !== data.length) {
                 prevFrameData = new Uint8ClampedArray(data.length);
             }
 
-            // Jalankan perbandingan antar frame jika data frame sebelumnya sudah terisi
+            // Deteksi diferensial (Hanya mendeteksi perubahan dinamis antar frame)
             if (prevFrameData.some(val => val !== 0)) {
                 for (let i = 0; i < data.length; i += 8) {
                     const r = data[i];
@@ -321,17 +322,14 @@
                     const prevB = prevFrameData[i + 2];
                     const prevBrightness = 0.299 * prevR + 0.587 * prevG + 0.114 * prevB;
                     
-                    // Hitung selisih perubahan nilai kecerahan (Delta)
                     const diff = Math.abs(brightness - prevBrightness);
                     
-                    // Jika terdeteksi perubahan mendadak (efek kedipan berfrekuensi)
                     if (diff > sensitivityThreshold) {
                         changedPixelCount++;
                     }
                 }
             }
             
-            // Simpan frame saat ini ke memori untuk dibandingkan dengan frame berikutnya
             prevFrameData.set(data);
             
             const currentPercentage = (changedPixelCount / totalPixels) * 100;
@@ -398,7 +396,7 @@
                 currentStream = null;
             }
             
-            prevFrameData = null; // Kosongkan buffer
+            prevFrameData = null; 
 
             indicator.classList.remove('active');
             statusText.innerText = "Sistem Dihentikan.";
