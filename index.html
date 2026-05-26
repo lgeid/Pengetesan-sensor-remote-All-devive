@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tester Remote IR (Kamera)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 {
+            color: #4da6ff;
+        }
+        video {
+            width: 100%;
+            max-width: 400px;
+            background-color: #000;
+            border: 3px solid #4da6ff;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px;
+            cursor: pointer;
+            background-color: #4da6ff;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3388dd;
+        }
+        .instructions {
+            background-color: #2a2a2a;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 15px;
+            line-height: 1.6;
+            text-align: left;
+            border-left: 4px solid #4da6ff;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Tester Remote TV / AC</h2>
+    
+    <div class="instructions">
+        <strong>Cara Penggunaan:</strong>
+        <ol>
+            <li>Klik tombol <strong>"Mulai Kamera"</strong> dan berikan izin akses saat diminta oleh browser.</li>
+            <li>Arahkan lampu LED (di bagian depan remote) langsung ke arah kamera HP Anda.</li>
+            <li>Tekan dan tahan tombol apa saja di remote tersebut.</li>
+            <li>Jika remote menyala, Anda akan melihat <strong>kedipan cahaya berwarna ungu pucat atau putih</strong> di layar video.</li>
+        </ol>
+        <em>*Catatan: Kamera depan HP (selfie) biasanya lebih baik untuk tes ini karena kamera belakang HP modern seringkali dilengkapi dengan filter inframerah (IR filter) yang menghalangi cahaya remote.</em>
+    </div>
+
+    <button id="startBtn">Mulai Kamera</button>
+    <button id="switchBtn" style="display: none;">Ganti Kamera (Depan/Belakang)</button>
+    
+    <br>
+    <video id="videoElement" autoplay playsinline></video>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const startBtn = document.getElementById('startBtn');
+        const switchBtn = document.getElementById('switchBtn');
+        
+        let currentStream = null;
+        let useFrontCamera = false; // Default pakai kamera belakang dulu
+
+        async function startCamera() {
+            // Matikan stream yang sedang berjalan (jika ada) sebelum mengganti kamera
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: useFrontCamera ? "user" : "environment"
+                }
+            };
+
+            try {
+                // Meminta akses ke kamera
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                
+                // Ubah tampilan tombol
+                startBtn.style.display = "none";
+                switchBtn.style.display = "inline-block";
+            } catch (err) {
+                console.error("Error mengakses kamera:", err);
+                alert("Gagal mengakses kamera! Pastikan Anda memberikan izin kamera. \n\nCatatan: Fitur kamera browser di HP biasanya hanya berfungsi jika web diakses melalui koneksi aman (HTTPS) atau localhost.");
+            }
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', startCamera);
+        
+        switchBtn.addEventListener('click', () => {
+            useFrontCamera = !useFrontCamera; // Toggle mode kamera
+            startCamera();
+        });
+    </script>
+</body>
+</html>
