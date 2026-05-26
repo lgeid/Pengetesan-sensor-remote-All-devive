@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tester Remote IR - Standar Mode</title>
+    <title>Tester Remote IR - Frequency Filter Mode</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -174,12 +174,12 @@
 </head>
 <body>
 
-    <h2>Tester Remote IR (Stabilized Mode)</h2>
+    <h2>Tester Remote IR (Frequency Filter Mode)</h2>
     <p style="margin: 0; color: #888; font-size: 13px;">Fitur: Audio Bip + Getar HP + Monitor Kamera (Peka Seimbang)</p>
 
     <div class="special-note">
-        <h4># Gunakan di tempat minim cahaya</h4>
-        Aplikasi ini umumnya digunakan untuk menangkap cahaya yang mengandung frekuensi, sehingga dapat mengetahui kondisi remote berfungsi atau tidak. Namun setelah diuji di beberapa perangkat yang memiliki spesifikasi kamera tinggi (high spec), aplikasi ini juga mampu menangkap frekuensi tak kasat mata karena tingkat kepekaannya yang sangat sensitif.
+        <h4># Gunakan di tempat mini cahaya</h4>
+        Aplikasi ini umumnya digunakan untuk menangkap cahaya yang mengandung freqwensi , sehingga dapat mengetahui kondisi remote fungsi atau tidak , namun setelah di test di beberapa perangkat yang memiliki spek kamera high , apk ini juga mampu menangkap freqwensi tak kasat mata , karena tingkat ke pekaannya sangat sensitif.
     </div>
 
     <div class="box-container">
@@ -200,14 +200,14 @@
 
     <div class="control-panel">
         <div class="control-group">
-            <label for="brightnessRange">Peka Cahaya: <span id="brightVal">180</span></label>
-            <input type="range" id="brightnessRange" min="100" max="245" value="180">
-            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (180) pas untuk mengabaikan lampu ruangan biasa.</div>
+            <label for="brightnessRange">Ambang Kedipan: <span id="brightVal">35</span></label>
+            <input type="range" id="brightnessRange" min="15" max="100" value="35">
+            <div style="color: #888; font-size: 11px; margin-left: 140px;">Makin kecil = merespon riak getaran cahaya yang sangat halus.</div>
         </div>
         <div class="control-group">
             <label for="pixelRange">Sensitivitas Titik: <span id="pixelVal">0.010</span>%</label>
             <input type="range" id="pixelRange" min="1" max="100" value="10">
-            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (10) mencegah noise kamera memicu getaran palsu.</div>
+            <div style="color: #888; font-size: 11px; margin-left: 140px;">Bawaan (10) ideal untuk menyaring goyangan tangan (noise).</div>
         </div>
     </div>
 
@@ -237,6 +237,9 @@
         let useFrontCamera = true; 
         let isDetecting = false;
         let animationFrameId = null;
+        
+        // Variabel penyimpan memori frame sebelumnya
+        let prevFrameData = null;
         
         let audioCtx = null;
         let lastActionTime = 0;
@@ -294,26 +297,44 @@
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
-            const brightnessThreshold = parseInt(brightnessRange.value);
+            const sensitivityThreshold = parseInt(brightnessRange.value); // Nilai ambang perubahan (Delta)
             const percentageThreshold = parseFloat(pixelRange.value) / 1000; 
             
-            let brightPixelCount = 0;
+            let changedPixelCount = 0;
             const totalPixels = data.length / 4;
             
-            for (let i = 0; i < data.length; i += 8) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                
-                const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-                
-                // Filter tambahan agar piksel lebih putih seimbang
-                if (brightness > brightnessThreshold && Math.abs(r - g) < 40 && Math.abs(g - b) < 40) {
-                    brightPixelCount++;
+            // Alokasikan memori buffer array sekali saja untuk performa tinggi
+            if (!prevFrameData || prevFrameData.length !== data.length) {
+                prevFrameData = new Uint8ClampedArray(data.length);
+            }
+
+            // Jalankan perbandingan antar frame jika data frame sebelumnya sudah terisi
+            if (prevFrameData.some(val => val !== 0)) {
+                for (let i = 0; i < data.length; i += 8) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                    
+                    const prevR = prevFrameData[i];
+                    const prevG = prevFrameData[i + 1];
+                    const prevB = prevFrameData[i + 2];
+                    const prevBrightness = 0.299 * prevR + 0.587 * prevG + 0.114 * prevB;
+                    
+                    // Hitung selisih perubahan nilai kecerahan (Delta)
+                    const diff = Math.abs(brightness - prevBrightness);
+                    
+                    // Jika terdeteksi perubahan mendadak (efek kedipan berfrekuensi)
+                    if (diff > sensitivityThreshold) {
+                        changedPixelCount++;
+                    }
                 }
             }
             
-            const currentPercentage = (brightPixelCount / totalPixels) * 100;
+            // Simpan frame saat ini ke memori untuk dibandingkan dengan frame berikutnya
+            prevFrameData.set(data);
+            
+            const currentPercentage = (changedPixelCount / totalPixels) * 100;
             
             if (currentPercentage > percentageThreshold) {
                 if (!indicator.classList.contains('active')) {
@@ -376,6 +397,8 @@
                 video.srcObject = null;
                 currentStream = null;
             }
+            
+            prevFrameData = null; // Kosongkan buffer
 
             indicator.classList.remove('active');
             statusText.innerText = "Sistem Dihentikan.";
