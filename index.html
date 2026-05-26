@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tester Remote IR (Kamera)</title>
+    <title>Pengetes Remote IR (Indikator Sahaja)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,15 +16,35 @@
         h2 {
             color: #4da6ff;
         }
-        video {
-            width: 100%;
-            max-width: 400px;
-            background-color: #000;
-            border: 3px solid #4da6ff;
+        .instructions {
+            background-color: #2a2a2a;
+            padding: 15px 20px;
             border-radius: 8px;
-            margin-top: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+            font-size: 15px;
+            line-height: 1.6;
+            text-align: left;
+            border-left: 4px solid #4da6ff;
         }
+        
+        /* Gaya untuk Indikator */
+        #indicator {
+            width: 150px;
+            height: 150px;
+            background-color: rgb(211, 47, 47); /* Merah saat mati */
+            border-radius: 50%;
+            margin: 20px auto;
+            border: 10px solid #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: background-color 0.1s, box-shadow 0.1s;
+        }
+        
+        /* Gaya untuk Indikator saat aktif */
+        #indicator.active {
+            background-color: rgb(76, 175, 80); /* Hijau saat nyala */
+            box-shadow: 0 0 25px rgb(139, 195, 74), 0 0 5px #fff;
+        }
+        
         button {
             padding: 12px 24px;
             font-size: 16px;
@@ -40,15 +60,10 @@
         button:hover {
             background-color: #3388dd;
         }
-        .instructions {
-            background-color: #2a2a2a;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 15px;
-            line-height: 1.6;
-            text-align: left;
-            border-left: 4px solid #4da6ff;
+        
+        /* Sembunyikan elemen video dan canvas */
+        video, canvas {
+            display: none;
         }
     </style>
 </head>
@@ -59,30 +74,88 @@
     <div class="instructions">
         <strong>Cara Penggunaan:</strong>
         <ol>
-            <li>Klik tombol <strong>"Mulai Kamera"</strong> dan berikan izin akses saat diminta oleh browser.</li>
-            <li>Arahkan lampu LED (di bagian depan remote) langsung ke arah kamera HP Anda.</li>
-            <li>Tekan dan tahan tombol apa saja di remote tersebut.</li>
-            <li>Jika remote menyala, Anda akan melihat <strong>kedipan cahaya berwarna ungu pucat atau putih</strong> di layar video.</li>
+            <li>Klik tombol <strong>"Mulai Deteksi"</strong> dan berikan izin akses kamera.</li>
+            <li>Arahkan lampu LED remote ke kamera HP Anda.</li>
+            <li>Tekan tombol apa saja di remote secara berulang.</li>
+            <li>Jika remote berfungsi, indikator bulat di bawah ini akan <strong>berkedip menjadi Hijau</strong>.</li>
         </ol>
-        <em>*Catatan: Kamera depan HP (selfie) biasanya lebih baik untuk tes ini karena kamera belakang HP modern seringkali dilengkapi dengan filter inframerah (IR filter) yang menghalangi cahaya remote.</em>
+        <em>*Catatan: Deteksi ini paling akurat di lingkungan yang tidak terlalu terang. Matikan lampu jika Anda mengalami kesulitan.</em>
     </div>
 
-    <button id="startBtn">Mulai Kamera</button>
-    <button id="switchBtn" style="display: none;">Ganti Kamera (Depan/Belakang)</button>
+    <button id="startBtn">Mulai Deteksi</button>
+    <button id="switchBtn" style="display: none;">Ganti Kamera</button>
     
     <br>
+    <div id="indicator"></div>
+    <div id="statusText">Deteksi belum aktif...</div>
+
     <video id="videoElement" autoplay playsinline></video>
+    <canvas id="canvasElement"></canvas>
 
     <script>
         const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvasElement');
+        const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
         const switchBtn = document.getElementById('switchBtn');
+        const indicator = document.getElementById('indicator');
+        const statusText = document.getElementById('statusText');
         
         let currentStream = null;
-        let useFrontCamera = false; // Default pakai kamera belakang dulu
+        let useFrontCamera = true; // Kita default ke kamera depan (biasanya lebih sensitif IR)
+        let isDetecting = false;
+
+        // Ambil piksel per piksel dan cari yang sangat cerah (paling putih)
+        function analyzeFrame() {
+            if (!isDetecting || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+            
+            // Samakan ukuran canvas dengan video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Gambar frame video saat ini ke canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Ambil data piksel mentah
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data; // Data piksel dalam [R,G,B,A, R,G,B,A, ...]
+            
+            // Ambang batas kecerahan (0-255). 200 adalah angka awal yang bagus.
+            const brightnessThreshold = 210; 
+            
+            // Ambang batas persentase piksel cerah (0.01 - 100).
+            const percentageThreshold = 0.02; // Lebih dari 0.02% piksel frame adalah sangat cerah
+            
+            let brightPixelCount = 0;
+            const totalPixels = data.length / 4;
+            
+            // Iterasi data piksel, kita loncat 4 piksel untuk mempercepat proses (downsampling)
+            for (let i = 0; i < data.length; i += 16) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                
+                // Cari piksel yang sangat cerah dan mendekati putih
+                // (R, G, dan B semuanya harus di atas ambang batas)
+                if (r > brightnessThreshold && g > brightnessThreshold && b > brightnessThreshold) {
+                    brightPixelCount++;
+                }
+            }
+            
+            const currentPercentage = (brightPixelCount / (totalPixels / 4)) * 100;
+            
+            // Nyalakan indikator jika kita menemukan titik cerah yang cukup
+            if (currentPercentage > percentageThreshold) {
+                indicator.classList.add('active');
+            } else {
+                indicator.classList.remove('active');
+            }
+            
+            // Lanjutkan loop analisis di frame berikutnya
+            requestAnimationFrame(analyzeFrame);
+        }
 
         async function startCamera() {
-            // Matikan stream yang sedang berjalan (jika ada) sebelum mengganti kamera
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
             }
@@ -101,13 +174,19 @@
                 // Ubah tampilan tombol
                 startBtn.style.display = "none";
                 switchBtn.style.display = "inline-block";
+                statusText.innerText = `Deteksi sedang berjalan... (Kamera ${useFrontCamera ? "Depan" : "Belakang"})`;
+                
+                // Mulai deteksi
+                isDetecting = true;
+                analyzeFrame();
             } catch (err) {
-                console.error("Error mengakses kamera:", err);
+                console.error("Error accessing camera:", err);
+                statusText.innerText = "Error: Gagal mengakses kamera!";
+                isDetecting = false;
                 alert("Gagal mengakses kamera! Pastikan Anda memberikan izin kamera. \n\nCatatan: Fitur kamera browser di HP biasanya hanya berfungsi jika web diakses melalui koneksi aman (HTTPS) atau localhost.");
             }
         }
 
-        // Event Listeners
         startBtn.addEventListener('click', startCamera);
         
         switchBtn.addEventListener('click', () => {
